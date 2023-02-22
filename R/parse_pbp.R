@@ -170,13 +170,8 @@ parse_pbp <- function(pbp_text) {
         on_court = gsub('\\(', 'x_', on_court),
         on_court = gsub(', ', ';x_', on_court),
         on_court = gsub(')', '', on_court),
-        home_lineup_change = grepl(paste0(
-          pbp_text$nickName_home[1], ' lineup change '
-        ), events),
-        away_lineup_change = grepl(
-          paste0(pbp_text$nickName_visitor[1], ' lineup change '),
-          events
-        ),
+        home_lineup_change = grepl(' lineup change ', homeText),
+        away_lineup_change = grepl(' lineup change ', visitorText),
         home_on_court = dplyr::case_when(home_lineup_change ~ on_court,
                                          T ~ NA_character_),
         away_on_court = dplyr::case_when(away_lineup_change ~ on_court,

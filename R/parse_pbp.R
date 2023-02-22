@@ -158,6 +158,33 @@ parse_pbp <- function(pbp_text) {
       dplyr::mutate(on_court = dplyr::case_when(stringr::str_count(on_court,';') == 9 ~ on_court,
                                                 T ~ NA_character_)) |>
       data.frame()
+    #separate all on court players into their own column
+    pbp_parsed[,paste0("player_", seq(1,10))] = stringr::str_split_fixed(pbp_parsed$on_court, ';', 10)
+    #initialize separate on_court column for home and visitor
+    pbp_parsed = pbp_parsed |> dplyr::mutate(visitor_on_court = "",
+                                             home_on_court = "")
+    #create one long string that has all visitor player names in it
+    visitor_text_str = stringr::str_c(pbp$visitorText, collapse = "|")
+    visitor_text_str = gsub("-", "", visitor_text_str)
+    #for each cell containing an on court player, test to see if they appear in the visitor events log at any point during the game
+    #if they do assign them to on_court visitor col, if not assign to on_court home col
+    for(c in paste0("player_", seq(1,10))){
+      for(r in 1:nrow(pbp_parsed)){
+        if(gsub("x_", "", pbp_parsed[r,c]) |> grepl(visitor_text_str)){
+          pbp_parsed[r,"visitor_on_court"] = paste(pbp_parsed[r,"visitor_on_court"], pbp_parsed[r,c], sep = ";")}
+        else{pbp_parsed[r,"home_on_court"] = paste(pbp_parsed[r,"home_on_court"], pbp_parsed[r,c], sep = ";")}
+      }
+    }
+    #remove ; that begins each on_court col and remove individual player on court cols
+    pbp_parsed = pbp_parsed |>
+      dplyr::mutate(visitor_on_court = sub('.', '', visitor_on_court),
+                    home_on_court = sub('.', '', home_on_court)) |>
+      dplyr::select(!contains("player_"))
+    pbp_parsed = pbp_parsed |>
+      dplyr::mutate(visitor_on_court = dplyr::case_when(stringr::str_count(visitor_on_court,';') == 4 ~ visitor_on_court,
+                                                        T ~ NA_character_),
+                    home_on_court = dplyr::case_when(stringr::str_count(home_on_court,';') == 4 ~ home_on_court,
+                                                     T ~ NA_character_))
   } else if (any(grepl(' lineup change ', pbp$events))) {
     # v1
     pbp_parsed <- pbp |>

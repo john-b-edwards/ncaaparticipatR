@@ -179,8 +179,8 @@ parse_pbp <- function(pbp_text) {
     pbp_parsed = pbp_parsed |>
       dplyr::mutate(visitor_on_court = sub('.', '', visitor_on_court),
                     home_on_court = sub('.', '', home_on_court)) |>
-      dplyr::select(!contains("player_"), -on_court)
-    pbp_parsed = pbp_parsed |>
+      dplyr::select(!contains("player_"), -on_court) |>
+      #test to make sure that home and visitor on_court columns have exactly 5 players each
       dplyr::mutate(visitor_on_court = dplyr::case_when(stringr::str_count(visitor_on_court,';') == 4 ~ visitor_on_court,
                                                         T ~ NA_character_),
                     home_on_court = dplyr::case_when(stringr::str_count(home_on_court,';') == 4 ~ home_on_court,

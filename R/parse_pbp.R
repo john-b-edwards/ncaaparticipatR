@@ -153,7 +153,10 @@ parse_pbp <- function(pbp_text) {
       ) |>
       dplyr::select(-c(stint)) |>
       #remove x_team from listed players in on_court
-      dplyr::mutate(on_court = gsub(";x_team", "", on_court)) |>
+      dplyr::mutate(on_court = gsub(";x_team", "", on_court),
+                    on_court = gsub("x_team;", "", on_court),
+                    on_court = gsub(';x_ \\[.*\\]',"", on_court),
+                    on_court = gsub('x_ \\[.*\\];',"", on_court)) |>
       # omit bad sub data
       dplyr::mutate(on_court = dplyr::case_when(stringr::str_count(on_court,';') == 9 ~ on_court,
                                                 T ~ NA_character_)) |>

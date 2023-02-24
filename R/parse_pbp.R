@@ -67,9 +67,9 @@ parse_pbp <- function(pbp_text) {
         subbed_in_home = grepl('Subbing in for ', homeText),
         subbed_out_home = grepl('Subbing out for ', homeText),
         player_on_play_home = gsub(
-          "((.*)'s |-|by )",
+          "((.*)'s |-| by )",
           "",
-          stringr::str_extract(homeText, "('s|by |-).*?$")
+          stringr::str_extract(homeText, "('s| by |-).*?$")
         ),
         player_on_play_home = gsub("\\(.*\\)", "", player_on_play_home),
         player_on_play_home = dplyr::case_when(
@@ -89,9 +89,9 @@ parse_pbp <- function(pbp_text) {
         subbed_in_visitor = grepl('Subbing in for ', visitorText),
         subbed_out_visitor = grepl('Subbing out for ', visitorText),
         player_on_play_visitor = gsub(
-          "((.*)'s |-|by )",
+          "((.*)'s |-| by )",
           "",
-          stringr::str_extract(visitorText, "('s|by |-).*?$")
+          stringr::str_extract(visitorText, "('s| by |-).*?$")
         ),
         player_on_play_visitor = gsub("\\(.*\\)", "", player_on_play_visitor),
         player_on_play_visitor = dplyr::case_when(
@@ -207,7 +207,7 @@ parse_pbp <- function(pbp_text) {
                 (
                   \(f) which(f == 1, arr.ind = T) |>
                     as.data.frame() |>
-                    dplyr::group_by(row) |>
+                    dplyr::group_by(row_1 = row) |>
                     dplyr::summarize(on_court_visitor = paste0(colnames(f)[unlist(list(col))], collapse =
                                                                  ';'))
                 )()

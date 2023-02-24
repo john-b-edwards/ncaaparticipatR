@@ -57,7 +57,8 @@ parse_pbp <- function(pbp_text) {
       events = dplyr::case_when(homeText == '' ~ visitorText,
                                 visitorText == '' ~ homeText,
                                 T ~ '')
-    )
+    ) |>
+    dplyr::distinct(events, time, periodNumber, .keep_all = T)
   # identify if this is v1 or v2
   if (any(grepl('Subbing in for ', pbp$events))) {
     # v2
@@ -116,7 +117,7 @@ parse_pbp <- function(pbp_text) {
       dplyr::filter(!is.na(player_on_play_visitor) |
                       !is.na(player_on_play_home)) |>
       dplyr::group_by(periodNumber) |>
-      dplyr::group_modify( ~ (\(a) {
+      dplyr::group_modify(~ (\(a) {
         cbind(
           a,
           a |>
@@ -165,7 +166,7 @@ parse_pbp <- function(pbp_text) {
             })()
         )
       })(.x)) |>
-      dplyr::group_modify( ~ (\(a) {
+      dplyr::group_modify(~ (\(a) {
         cbind(
           a,
           a |>
@@ -461,14 +462,18 @@ parse_pbp <- function(pbp_text) {
       ) |>
       dplyr::select(-c(stint)) |>
       # omit bad sub data
-      dplyr::mutate(home_on_court = dplyr::case_when(
-        stringr::str_count(home_on_court, ';') == 4 ~ home_on_court,
-        T ~ NA_character_
-      )) |>
-      dplyr::mutate(away_on_court = dplyr::case_when(
-        stringr::str_count(away_on_court, ';') == 4 ~ away_on_court,
-        T ~ NA_character_
-      )) |>
+      dplyr::mutate(
+        home_on_court = dplyr::case_when(
+          stringr::str_count(home_on_court, ';') == 4 ~ home_on_court,
+          T ~ NA_character_
+        )
+      ) |>
+      dplyr::mutate(
+        away_on_court = dplyr::case_when(
+          stringr::str_count(away_on_court, ';') == 4 ~ away_on_court,
+          T ~ NA_character_
+        )
+      ) |>
       #consistent column naming with v2
       dplyr::rename(on_court_home = home_on_court,
                     on_court_visitor = away_on_court) |>

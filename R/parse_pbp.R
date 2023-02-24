@@ -57,44 +57,76 @@ parse_pbp <- function(pbp_text) {
       events = dplyr::case_when(homeText == '' ~ visitorText,
                                 visitorText == '' ~ homeText,
                                 T ~ '')
-    )
+    ) |>
+    dplyr::distinct(events, time, periodNumber, .keep_all = T)
   # identify if this is v1 or v2
   if (any(grepl('Subbing in for ', pbp$events))) {
     # v2
     pbp_parsed <- pbp |>
       # check which plays get subbed in, which get subbed out
       dplyr::mutate(
-        subbed_in = grepl('Subbing in for ', events),
-        subbed_out = grepl('Subbing out for ', events),
-        player_on_play = gsub(
-          "((.*)'s |-|by )",
+        subbed_in_home = grepl('Subbing in for ', homeText),
+        subbed_out_home = grepl('Subbing out for ', homeText),
+        player_on_play_home = gsub(
+          "((.*)'s |-| by )",
           "",
-          stringr::str_extract(events, "('s|by |-).*?$")
+          stringr::str_extract(homeText, "('s| by |-).*?$")
         ),
-        player_on_play = gsub("\\(.*\\)", "", player_on_play),
-        player_on_play = dplyr::case_when(player_on_play == "second time out." ~ "",
-                                          T ~ player_on_play),
-        player_on_play = trimws(player_on_play),
-        player_on_play = gsub(dplyr::first(shortName_home), "", player_on_play),
-        player_on_play = gsub(dplyr::first(shortName_visitor), "", player_on_play),
-        player_on_play = dplyr::case_when(player_on_play == '' ~ NA_character_,
-                                          player_on_play == "'s" ~ NA_character_,
-                                          T ~ player_on_play),
-        on_court_flag = dplyr::case_when(subbed_in ~ 1,
-                                         subbed_out ~ 0,
-                                         T ~ NA_real_)
+        player_on_play_home = gsub("\\(.*\\)", "", player_on_play_home),
+        player_on_play_home = dplyr::case_when(
+          player_on_play_home == "second time out." ~ "",
+          T ~ player_on_play_home
+        ),
+        player_on_play_home = trimws(player_on_play_home),
+        player_on_play_home = gsub(dplyr::first(shortName_home), "", player_on_play_home),
+        player_on_play_home = dplyr::case_when(
+          player_on_play_home == '' ~ NA_character_,
+          player_on_play_home == "'s" ~ NA_character_,
+          T ~ player_on_play_home
+        ),
+        on_court_flag_home = dplyr::case_when(subbed_in_home ~ 1,
+                                              subbed_out_home ~ 0,
+                                              T ~ NA_real_),
+        subbed_in_visitor = grepl('Subbing in for ', visitorText),
+        subbed_out_visitor = grepl('Subbing out for ', visitorText),
+        player_on_play_visitor = gsub(
+          "((.*)'s |-| by )",
+          "",
+          stringr::str_extract(visitorText, "('s| by |-).*?$")
+        ),
+        player_on_play_visitor = gsub("\\(.*\\)", "", player_on_play_visitor),
+        player_on_play_visitor = dplyr::case_when(
+          player_on_play_visitor == "second time out." ~ "",
+          T ~ player_on_play_visitor
+        ),
+        player_on_play_visitor = trimws(player_on_play_visitor),
+        player_on_play_visitor = gsub(
+          dplyr::first(shortName_visitor),
+          "",
+          player_on_play_visitor
+        ),
+        player_on_play_visitor = dplyr::case_when(
+          player_on_play_visitor == '' ~ NA_character_,
+          player_on_play_visitor == "'s" ~ NA_character_,
+          T ~ player_on_play_visitor
+        ),
+        on_court_flag_visitor = dplyr::case_when(subbed_in_visitor ~ 1,
+                                                 subbed_out_visitor ~ 0,
+                                                 T ~ NA_real_),
       ) |>
-      dplyr::filter(!is.na(player_on_play)) |>
+      dplyr::filter(!is.na(player_on_play_visitor) |
+                      !is.na(player_on_play_home)) |>
       dplyr::group_by(periodNumber) |>
-      dplyr::group_modify( ~ (\(a) {
+      dplyr::group_modify(~ (\(a) {
         cbind(
           a,
           a |>
             # create a matrix of all players mentioned in the pbp at any point
             tidyr::pivot_wider(
-              names_from = player_on_play,
-              values_from = on_court_flag,
-              names_prefix = 'x_'
+              names_from = player_on_play_home,
+              values_from = on_court_flag_home,
+              names_prefix = 'x_',
+              names_repair = "check_unique"
             ) |>
             #' whenever a player is subbed in, they have a 1 in that row and a 0
             #' in the row before. whenever a player is subbed out, they have a 0
@@ -128,38 +160,104 @@ parse_pbp <- function(pbp_text) {
                   \(f) which(f == 1, arr.ind = T) |>
                     as.data.frame() |>
                     dplyr::group_by(row) |>
-                    dplyr::summarize(on_court = paste0(colnames(f)[unlist(list(col))], collapse =
-                                                         ';'))
+                    dplyr::summarize(on_court_home = paste0(colnames(f)[unlist(list(col))], collapse =
+                                                              ';'))
+                )()
+            })()
+        )
+      })(.x)) |>
+      dplyr::group_modify(~ (\(a) {
+        cbind(
+          a,
+          a |>
+            # create a matrix of all players mentioned in the pbp at any point
+            tidyr::pivot_wider(
+              names_from = player_on_play_visitor,
+              values_from = on_court_flag_visitor,
+              names_prefix = 'x_',
+              names_repair = "check_unique"
+            ) |>
+            #' whenever a player is subbed in, they have a 1 in that row and a 0
+            #' in the row before. whenever a player is subbed out, they have a 0
+            #' in that row and a 1 in the row before
+            dplyr::mutate(
+              dplyr::across(
+                dplyr::starts_with('x_'),
+                ~ dplyr::case_when(dplyr::lead(.) == 0 ~ 1,
+                                   dplyr::lead(.) == 1 ~ 0,
+                                   T ~
+                                     .)
+              )
+            ) |>
+            #' we then cascade the 1s and 0s up and down to create map of who is
+            #' in the game at any given time
+            tidyr::fill(c(dplyr::starts_with('x_')), .direction = "down") |>
+            tidyr::fill(c(dplyr::starts_with('x_')), .direction = "up") |>
+            dplyr::mutate(
+              dplyr::across(
+                dplyr::starts_with('x_'),
+                ~ dplyr::case_when(is.na(.x) ~ 1,
+                                   T ~ .x)
+              )
+            ) |>
+            # finally we collapse the values down into a string of who is on court
+            (\(d) {
+              d |>
+                dplyr::select(dplyr::starts_with('x_')) |>
+                dplyr::select(-dplyr::any_of('x_NA')) |>
+                (
+                  \(f) which(f == 1, arr.ind = T) |>
+                    as.data.frame() |>
+                    dplyr::group_by(row_1 = row) |>
+                    dplyr::summarize(on_court_visitor = paste0(colnames(f)[unlist(list(col))], collapse =
+                                                                 ';'))
                 )()
             })()
         )
       })(.x)) |>
       dplyr::ungroup() |>
       # find out when lineups change
-      dplyr::mutate(stint = cumsum(subbed_in + subbed_out)) |>
-      dplyr::group_by(stint, on_court, periodNumber) |>
-      dplyr::summarise(stint_start = dplyr::first(time),
-                       stint_end = dplyr::last(time),
-                       .groups = "drop") |>
+      dplyr::mutate(stint = cumsum(
+        subbed_in_home + subbed_out_home + subbed_in_visitor + subbed_in_home
+      )) |>
+      dplyr::group_by(stint, on_court_home, on_court_visitor, periodNumber) |>
+      dplyr::summarise(
+        stint_start = dplyr::first(time),
+        stint_end = dplyr::last(time),
+        .groups = "drop"
+      ) |>
       dplyr::filter(stint_start != stint_end) |>
       dplyr::ungroup() |>
       dplyr::group_by(periodNumber) |>
       dplyr::mutate(
-        stint_start = dplyr::case_when(stint == 0 & periodNumber %in% c(1,2) ~ lubridate::as.period("20M 0S"),
-                                       stint == 0 & periodNumber >= 3 ~ lubridate::as.period("5M 0S"),
-                                       T ~ stint_start),
-        stint_end = dplyr::case_when(stint == max(stint) ~ lubridate::as.period("0M 0S"),
-                                     T ~ stint_end)
+        stint_start = dplyr::case_when(
+          stint == 0 &
+            periodNumber %in% c(1, 2) ~ lubridate::as.period("20M 0S"),
+          stint == 0 &
+            periodNumber >= 3 ~ lubridate::as.period("5M 0S"),
+          T ~ stint_start
+        ),
+        stint_end = dplyr::case_when(
+          stint == max(stint) ~ lubridate::as.period("0M 0S"),
+          T ~ stint_end
+        )
       ) |>
       dplyr::select(-c(stint)) |>
       #remove x_team from listed players in on_court
-      dplyr::mutate(on_court = gsub(";x_team", "", on_court),
-                    on_court = gsub("x_team;", "", on_court),
-                    on_court = gsub(';x_ \\[.*\\]',"", on_court),
-                    on_court = gsub('x_ \\[.*\\];',"", on_court)) |>
+      dplyr::mutate(
+        on_court_home = gsub(";x_team|x_team;", "", on_court_home),
+        on_court_visitor = gsub(";x_team|x_team;", "", on_court_visitor),
+        on_court_home = gsub(';x_ \\[.*\\]', "", on_court_home),
+        on_court_home = gsub(';x_ \\[.*\\]', "", on_court_home),
+        on_court_visitor = gsub(';x_ \\[.*\\]', "", on_court_visitor),
+        on_court_visitor = gsub(';x_ \\[.*\\]', "", on_court_visitor),
+      ) |>
       # omit bad sub data
-      dplyr::mutate(on_court = dplyr::case_when(stringr::str_count(on_court,';') == 9 ~ on_court,
-                                                T ~ NA_character_)) |>
+      dplyr::mutate(dplyr::across(
+        dplyr::starts_with("on_court"),
+        \(x) dplyr::case_when(stringr::str_count(x, ';') == 4 ~ x,
+                              T ~ NA_character_)
+      )) |>
       data.frame()
   } else if (any(grepl(' lineup change ', pbp$events))) {
     # v1
@@ -184,7 +282,8 @@ parse_pbp <- function(pbp_text) {
       (\(x) {
         # for the start of the game, we're missing lineups, so we have to estimate these
         missing_both <- x |>
-          dplyr::filter(is.na(home_on_court) & is.na(away_on_court))
+          dplyr::filter(is.na(home_on_court) &
+                          is.na(away_on_court))
         # sometimes only one team makes a change initially, this handles that
         missing_home <- x |>
           dplyr::filter(is.na(home_on_court) &
@@ -203,7 +302,8 @@ parse_pbp <- function(pbp_text) {
         # if the away team made a substitution first and the home team did not make a sub at the same time
         if (nrow(missing_home)) {
           # grab the players from the text
-          extracted_one_home <- extract_all_players(missing_home$homeText)
+          extracted_one_home <-
+            extract_all_players(missing_home$homeText)
           extracted_one_away <-
             extract_all_players(missing_home$visitorText)
           # pull in all the players who are recorded as being on court for the home team while this is missing
@@ -332,27 +432,51 @@ parse_pbp <- function(pbp_text) {
                                 complete))
       })() |>
       # clean the data and calculate stints
-      dplyr::mutate(on_court = paste0(home_on_court, ";", away_on_court),
-                    substitution = grepl(' lineup change ', events)) |>
+      dplyr::mutate(
+        on_court = paste0(home_on_court, ";", away_on_court),
+        substitution = grepl(' lineup change ', events)
+      ) |>
       dplyr::ungroup() |>
       dplyr::mutate(stint = cumsum(substitution)) |>
-      dplyr::group_by(stint, on_court, periodNumber) |>
-      dplyr::summarise(stint_start = dplyr::first(time),
-                       stint_end = dplyr::last(time),
-                       .groups = "drop") |>
+      dplyr::group_by(stint, home_on_court, away_on_court, periodNumber) |>
+      dplyr::summarise(
+        stint_start = dplyr::first(time),
+        stint_end = dplyr::last(time),
+        .groups = "drop"
+      ) |>
       dplyr::filter(stint_start != stint_end) |>
       dplyr::ungroup() |>
       dplyr::group_by(periodNumber) |>
       dplyr::mutate(
-        stint_start = dplyr::case_when(stint == 0 & periodNumber %in% c(1,2) ~ lubridate::as.period("20M 0S"),
-                                       stint == 0 & periodNumber >= 3 ~ lubridate::as.period("5M 0S"),
-                                       T ~ stint_start),
-        stint_end = dplyr::case_when(stint == max(stint) ~ lubridate::as.period("0M 0S"),
-                                     T ~ stint_end)
+        stint_start = dplyr::case_when(
+          stint == 0 &
+            periodNumber %in% c(1, 2) ~ lubridate::as.period("20M 0S"),
+          stint == 0 &
+            periodNumber >= 3 ~ lubridate::as.period("5M 0S"),
+          T ~ stint_start
+        ),
+        stint_end = dplyr::case_when(
+          stint == max(stint) ~ lubridate::as.period("0M 0S"),
+          T ~ stint_end
+        )
       ) |>
       dplyr::select(-c(stint)) |>
-      dplyr::mutate(on_court = dplyr::case_when(stringr::str_count(on_court,';') == 9 ~ on_court,
-                                                T ~ NA_character_)) |> # omit bad sub data
+      # omit bad sub data
+      dplyr::mutate(
+        home_on_court = dplyr::case_when(
+          stringr::str_count(home_on_court, ';') == 4 ~ home_on_court,
+          T ~ NA_character_
+        )
+      ) |>
+      dplyr::mutate(
+        away_on_court = dplyr::case_when(
+          stringr::str_count(away_on_court, ';') == 4 ~ away_on_court,
+          T ~ NA_character_
+        )
+      ) |>
+      #consistent column naming with v2
+      dplyr::rename(on_court_home = home_on_court,
+                    on_court_visitor = away_on_court) |>
       data.frame()
   }
   return(pbp_parsed)

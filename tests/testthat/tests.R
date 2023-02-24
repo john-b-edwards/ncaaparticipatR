@@ -24,3 +24,9 @@ test_that("pbp is scraped correctly", {
   # older mbb pbp
   expect_snapshot(scrape_pbp(3170318))
 })
+
+test_that("pbp is parsed correct", {
+  expect_snapshot(parse_pbp(scrape_pbp(6053773)))
+  expect_snapshot(parse_pbp(scrape_pbp(3170318)))
+  expect_snapshot(parse_pbp(scrape_pbp(3913644)))
+})

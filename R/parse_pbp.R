@@ -437,7 +437,7 @@ parse_pbp <- function(pbp_text) {
       ) |>
       dplyr::ungroup() |>
       dplyr::mutate(stint = cumsum(substitution)) |>
-      dplyr::group_by(stint, on_court, periodNumber) |>
+      dplyr::group_by(stint, home_on_court, away_on_court, periodNumber) |>
       dplyr::summarise(
         stint_start = dplyr::first(time),
         stint_end = dplyr::last(time),
@@ -460,10 +460,18 @@ parse_pbp <- function(pbp_text) {
         )
       ) |>
       dplyr::select(-c(stint)) |>
-      dplyr::mutate(on_court = dplyr::case_when(
-        stringr::str_count(on_court, ';') == 9 ~ on_court,
+      # omit bad sub data
+      dplyr::mutate(home_on_court = dplyr::case_when(
+        stringr::str_count(home_on_court, ';') == 4 ~ home_on_court,
         T ~ NA_character_
-      )) |> # omit bad sub data
+      )) |>
+      dplyr::mutate(away_on_court = dplyr::case_when(
+        stringr::str_count(away_on_court, ';') == 4 ~ away_on_court,
+        T ~ NA_character_
+      )) |>
+      #consistent column naming with v2
+      dplyr::rename(on_court_home = home_on_court,
+                    on_court_visitor = away_on_court) |>
       data.frame()
   }
   return(pbp_parsed)

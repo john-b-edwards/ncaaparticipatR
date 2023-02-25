@@ -499,6 +499,9 @@ parse_pbp <- function(pbp_text, type = "mens") {
       dplyr::rename(on_court_home = home_on_court,
                     on_court_visitor = away_on_court) |>
       data.frame()
+  } else {
+    cli::cli_alert("No substitutions found for {pbp$game_id[1]}! Returning empty DF...")
+    pbp_parsed <- data.frame()
   }
   return(pbp_parsed)
 }

@@ -60,6 +60,10 @@ parse_pbp <- function(pbp_text, type = "mens") {
                                 visitorText == '' ~ homeText,
                                 T ~ '')
     )
+  if((type == "mens" & max(pbp_text$periodNumber) < 2) | (type == "womens" & max(pbp_text$periodNumber) < 4)) {
+    cli::cli_alert_warning("Incomplete game provided! Unable to provide lineups for {pbp$game_id[1]}, returning empty df...")
+    pbp_parsed <- data.frame()
+  } else
   # identify if this is v1 or v2
   if (any(grepl('Subbing in for ', pbp$events))) {
     # v2
@@ -71,7 +75,7 @@ parse_pbp <- function(pbp_text, type = "mens") {
         player_on_play_home = gsub(
           "((.*)'s |-| by )",
           "",
-          stringr::str_extract(homeText, "('s| by |-).*?$")
+          stringr::str_extract(homeText, "('s| by |- ).*?$")
         ),
         player_on_play_home = gsub("\\(.*\\)", "", player_on_play_home),
         player_on_play_home = dplyr::case_when(
@@ -93,7 +97,7 @@ parse_pbp <- function(pbp_text, type = "mens") {
         player_on_play_visitor = gsub(
           "((.*)'s |-| by )",
           "",
-          stringr::str_extract(visitorText, "('s| by |-).*?$")
+          stringr::str_extract(visitorText, "('s| by |- ).*?$")
         ),
         player_on_play_visitor = gsub("\\(.*\\)", "", player_on_play_visitor),
         player_on_play_visitor = dplyr::case_when(
@@ -500,7 +504,7 @@ parse_pbp <- function(pbp_text, type = "mens") {
                     on_court_visitor = away_on_court) |>
       data.frame()
   } else {
-    cli::cli_alert("No substitutions found for {pbp$game_id[1]}! Returning empty DF...")
+    cli::cli_alert_warning("No substitutions found for {pbp$game_id[1]}! Returning empty DF...")
     pbp_parsed <- data.frame()
   }
   return(pbp_parsed)

@@ -31,12 +31,14 @@ extract_all_players <- function(text) {
 #'
 #' @description Takes in a dataframe of PBP data, returns the lineups and the times those lineups were on-court for.
 #' @param pbp_text A dataframe of pbp data as returned by `scrape_pbp()`.
+#' @param type A string, either "mens" or "womens", for the type of game. Defaults to "mens".
 #'
 #' @return A dataframe of lineups and the times that they were on court for.
 #' @export
 #'
 #' @examples parse_pbp(scrape_pbp())
-parse_pbp <- function(pbp_text) {
+parse_pbp <- function(pbp_text, type = "mens") {
+  stopifnot(type %in% c("mens","womens"))
   pbp <- pbp_text |>
     # fill in score column (is left blank when score is unchanged)
     dplyr::mutate(score = dplyr::case_when(score == "" ~ NA_character_,
@@ -117,7 +119,7 @@ parse_pbp <- function(pbp_text) {
       dplyr::filter(!is.na(player_on_play_visitor) |
                       !is.na(player_on_play_home)) |>
       dplyr::group_by(periodNumber) |>
-      dplyr::group_modify(~ (\(a) {
+      dplyr::group_modify( ~ (\(a) {
         cbind(
           a,
           a |>
@@ -166,7 +168,7 @@ parse_pbp <- function(pbp_text) {
             })()
         )
       })(.x)) |>
-      dplyr::group_modify(~ (\(a) {
+      dplyr::group_modify( ~ (\(a) {
         cbind(
           a,
           a |>
@@ -228,17 +230,30 @@ parse_pbp <- function(pbp_text) {
       ) |>
       dplyr::filter(stint_start != stint_end) |>
       dplyr::ungroup() |>
+      dplyr::arrange(periodNumber,-stint_start) |>
       dplyr::group_by(periodNumber) |>
       dplyr::mutate(
         stint_start = dplyr::case_when(
-          stint == 0 &
-            periodNumber %in% c(1, 2) ~ lubridate::as.period("20M 0S"),
-          stint == 0 &
-            periodNumber >= 3 ~ lubridate::as.period("5M 0S"),
+          dplyr::row_number() == 1 &
+            periodNumber %in% c(1, 2) &
+            type == "mens" ~ lubridate::as.period("20M 0S"),
+          dplyr::row_number() == 1 &
+            periodNumber %in% c(1, 2, 3, 4) &
+            type == "womens" ~ lubridate::as.period("10M 0S"),
+          (
+            dplyr::row_number() == 1 &
+              periodNumber >= 3 &
+              type == "mens"
+          ) |
+            (
+              dplyr::row_number() == 1 &
+                periodNumber >= 5 &
+                type == "womens"
+            ) ~ lubridate::as.period("5M 0S"),
           T ~ stint_start
         ),
         stint_end = dplyr::case_when(
-          stint == max(stint) ~ lubridate::as.period("0M 0S"),
+          dplyr::row_number() == dplyr::n() ~ lubridate::as.period("0M 0S"),
           T ~ stint_end
         )
       ) |>
@@ -446,17 +461,30 @@ parse_pbp <- function(pbp_text) {
       ) |>
       dplyr::filter(stint_start != stint_end) |>
       dplyr::ungroup() |>
+      dplyr::arrange(periodNumber,-stint_start) |>
       dplyr::group_by(periodNumber) |>
       dplyr::mutate(
         stint_start = dplyr::case_when(
-          stint == 0 &
-            periodNumber %in% c(1, 2) ~ lubridate::as.period("20M 0S"),
-          stint == 0 &
-            periodNumber >= 3 ~ lubridate::as.period("5M 0S"),
+          dplyr::row_number() == 1 &
+            periodNumber %in% c(1, 2) &
+            type == "mens" ~ lubridate::as.period("20M 0S"),
+          dplyr::row_number() == 1 &
+            periodNumber %in% c(1, 2, 3, 4) &
+            type == "womens" ~ lubridate::as.period("10M 0S"),
+          (
+            dplyr::row_number() == 1 &
+              periodNumber >= 3 &
+              type == "mens"
+          ) |
+            (
+              dplyr::row_number() == 1 &
+                periodNumber >= 5 &
+                type == "womens"
+            ) ~ lubridate::as.period("5M 0S"),
           T ~ stint_start
         ),
         stint_end = dplyr::case_when(
-          stint == max(stint) ~ lubridate::as.period("0M 0S"),
+          dplyr::row_number() == dplyr::n() ~ lubridate::as.period("0M 0S"),
           T ~ stint_end
         )
       ) |>

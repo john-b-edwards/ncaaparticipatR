@@ -4,10 +4,12 @@
 \alias{parse_pbp}
 \title{Parse pbp data into participation data}
 \usage{
-parse_pbp(pbp_text)
+parse_pbp(pbp_text, type = "mens")
 }
 \arguments{
 \item{pbp_text}{A dataframe of pbp data as returned by `scrape_pbp()`.}
+
+\item{type}{A string, either "mens" or "womens", for the type of game. Defaults to "mens".}
 }
 \value{
 A dataframe of lineups and the times that they were on court for.
@@ -17,6 +19,11 @@ Takes in a dataframe of PBP data, returns the lineups and the times those lineup
 }
 \examples{
 parse_pbp(scrape_pbp())
+whenever a player is subbed in, they have a 1 in that row and a 0
+in the row before. whenever a player is subbed out, they have a 0
+in that row and a 1 in the row before
+we then cascade the 1s and 0s up and down to create map of who is
+in the game at any given time
 whenever a player is subbed in, they have a 1 in that row and a 0
 in the row before. whenever a player is subbed out, they have a 0
 in that row and a 1 in the row before

@@ -121,6 +121,12 @@ parse_pbp <- function(pbp_text, type = "mens") {
       ) |>
       dplyr::filter(!is.na(player_on_play_visitor) |
                       !is.na(player_on_play_home)) |>
+      dplyr::group_by(time,player_on_play_home) |>
+      dplyr::filter(!(sum(subbed_in_home) == sum(subbed_out_home) & sum(subbed_in_home) > 0)) |>
+      dplyr::ungroup() |>
+      dplyr::group_by(time,player_on_play_visitor) |>
+      dplyr::filter(!(sum(subbed_in_visitor) == sum(subbed_out_home) & sum(subbed_in_home) > 0)) |>
+      dplyr::ungroup() |>
       dplyr::group_by(periodNumber) |>
       dplyr::group_modify( ~ (\(a) {
         cbind(

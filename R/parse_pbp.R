@@ -158,13 +158,10 @@ parse_pbp <- function(pbp_text, type = "mens") {
               d |>
                 dplyr::select(dplyr::starts_with('x_')) |>
                 dplyr::select(-dplyr::any_of('x_NA')) |>
-                (
-                  \(f) which(f == 1, arr.ind = T) |>
-                    as.data.frame() |>
-                    dplyr::group_by(row) |>
-                    dplyr::summarize(on_court_home = paste0(colnames(f)[unlist(list(col))], collapse =
-                                                              ';'))
-                )()
+                dplyr::mutate(row = dplyr::row_number()) |>
+                tidyr::pivot_longer(dplyr::starts_with("x_")) |>
+                dplyr::group_by(row) |>
+                dplyr::summarise(on_court_home = paste0(name[value == 1],collapse=';'))
             })()
         )
       })(.x)) |>
@@ -207,13 +204,10 @@ parse_pbp <- function(pbp_text, type = "mens") {
               d |>
                 dplyr::select(dplyr::starts_with('x_')) |>
                 dplyr::select(-dplyr::any_of('x_NA')) |>
-                (
-                  \(f) which(f == 1, arr.ind = T) |>
-                    as.data.frame() |>
-                    dplyr::group_by(row_1 = row) |>
-                    dplyr::summarize(on_court_visitor = paste0(colnames(f)[unlist(list(col))], collapse =
-                                                                 ';'))
-                )()
+                dplyr::mutate(row_1 = dplyr::row_number()) |>
+                tidyr::pivot_longer(dplyr::starts_with("x_")) |>
+                dplyr::group_by(row_1) |>
+                dplyr::summarise(on_court_visitor = paste0(name[value == 1],collapse=';'))
             })()
         )
       })(.x)) |>

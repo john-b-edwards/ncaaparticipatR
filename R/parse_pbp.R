@@ -59,8 +59,7 @@ parse_pbp <- function(pbp_text, type = "mens") {
       events = dplyr::case_when(homeText == '' ~ visitorText,
                                 visitorText == '' ~ homeText,
                                 T ~ '')
-    ) |>
-    dplyr::distinct(events, time, periodNumber, .keep_all = T)
+    )
   # identify if this is v1 or v2
   if (any(grepl('Subbing in for ', pbp$events))) {
     # v2
